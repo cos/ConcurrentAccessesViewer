@@ -1,5 +1,12 @@
 package edu.illinois.concurrentaccessview.views;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IMarker;
+import org.eclipse.core.resources.IProject;
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.IJavaProject;
@@ -25,15 +32,21 @@ import org.eclipse.swt.widgets.Menu;
 import org.eclipse.ui.IActionBars;
 import org.eclipse.ui.ISelectionListener;
 import org.eclipse.ui.ISharedImages;
+import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchActionConstants;
+import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchPart;
+import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.ide.IDE;
 import org.eclipse.ui.part.DrillDownAdapter;
 import org.eclipse.ui.part.ViewPart;
 
 import sabazios.domains.ConcurrentAccesses;
+import sabazios.domains.Loop;
+import sabazios.domains.ObjectAccess;
+import sabazios.util.CodeLocation;
 import edu.illinois.concurrentaccessview.analysis.DataRaceAnalysis;
-
 
 /**
  * This sample class demonstrates how to plug-in a new
@@ -67,6 +80,8 @@ public class ConcurrentAccessView extends ViewPart implements ISelectionListener
 	private Action action1;
 	private Action action2;
 	private Action doubleClickAction;
+
+	private IFile file;
 
 	/**
 	 * The constructor.
@@ -162,14 +177,37 @@ public class ConcurrentAccessView extends ViewPart implements ISelectionListener
 		action2.setToolTipText("Action 2 tooltip");
 		action2.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().
 				getImageDescriptor(ISharedImages.IMG_OBJS_INFO_TSK));
+		
 		doubleClickAction = new Action() {
 			public void run() {
+				
 				ISelection selection = viewer.getSelection();
-				Object obj = ((IStructuredSelection)selection).getFirstElement();
-				showMessage("Double-click detected on "+obj.toString());
+				Object obj = ((IStructuredSelection) selection).getFirstElement();
+				
+				CodeLocation cl = null;
+				
+				if (obj instanceof Map.Entry) {
+					Object obj2 = ((Map.Entry) obj).getKey();
+					if (obj2 instanceof Loop) {
+						Loop loop = (Loop) obj2;
+						cl = loop.getCodeLocation();
+					}
+				} else if (obj instanceof ObjectAccess) {
+					ObjectAccess oa = (ObjectAccess) obj;
+					cl = oa.getCodeLocation();
+				}
+				
+				try {
+					if (cl != null) {
+						openFileInEditor(cl.getLineNo());
+					}
+				} catch (CoreException e) {
+					e.printStackTrace();
+				}
 			}
 		};
 	}
+	
 	@Override
 	public void selectionChanged(IWorkbenchPart part, ISelection selection) {
 		if (selection instanceof TreeSelection) {
@@ -220,6 +258,10 @@ public class ConcurrentAccessView extends ViewPart implements ISelectionListener
 						
 						ConcurrentAccesses<?> ca = analysis.findConcurrentAccesses(entryClass.toString(), "verySimpleRace()V");
 						this.viewer.setInput(ca);
+						
+						IPath p = cu.getPath();
+						IProject project = javaProject.getProject();
+						this.file = project.getFile(p.removeFirstSegments(1));
 					} catch (JavaModelException e) {
 						e.printStackTrace();
 					}
@@ -240,5 +282,21 @@ public class ConcurrentAccessView extends ViewPart implements ISelectionListener
 			viewer.getControl().getShell(),
 			"Concurrent Access View",
 			message);
+	}
+	
+	private void openFileInEditor(int line) throws CoreException {
+		
+		IWorkbench wb = PlatformUI.getWorkbench();
+		IWorkbenchWindow win = wb.getActiveWorkbenchWindow();
+		IWorkbenchPage page = win.getActivePage();
+		
+		HashMap<String, Object> map = new HashMap<String, Object>();
+		map.put(IMarker.LINE_NUMBER, new Integer(line));
+		map.put(IDE.EDITOR_ID_ATTR, "org.eclipse.ui.DefaultTextEditor");
+		IMarker marker = this.file.createMarker(IMarker.TEXT);
+		marker.setAttributes(map);
+		
+		IDE.openEditor(page, marker);
+		marker.delete();
 	}
 }
