@@ -14,12 +14,6 @@ import org.eclipse.jdt.core.IPackageFragmentRoot;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.internal.core.CompilationUnit;
 import org.eclipse.jface.action.Action;
-import org.eclipse.jface.action.IMenuListener;
-import org.eclipse.jface.action.IMenuManager;
-import org.eclipse.jface.action.IToolBarManager;
-import org.eclipse.jface.action.MenuManager;
-import org.eclipse.jface.action.Separator;
-import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.DoubleClickEvent;
 import org.eclipse.jface.viewers.IDoubleClickListener;
 import org.eclipse.jface.viewers.ISelection;
@@ -30,16 +24,11 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Label;
-import org.eclipse.swt.widgets.Menu;
-import org.eclipse.ui.IActionBars;
 import org.eclipse.ui.ISelectionListener;
-import org.eclipse.ui.ISharedImages;
-import org.eclipse.ui.IWorkbenchActionConstants;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.ide.IDE;
-import org.eclipse.ui.part.DrillDownAdapter;
 import org.eclipse.ui.part.ViewPart;
 
 import sabazios.domains.ConcurrentAccesses;
@@ -49,23 +38,9 @@ import sabazios.util.CodeLocation;
 import edu.illinois.concurrentaccessview.analysis.DataRaceAnalysis;
 
 /**
- * This sample class demonstrates how to plug-in a new
- * workbench view. The view shows data obtained from the
- * model. The sample creates a dummy model on the fly,
- * but a real implementation would connect to the model
- * available either in this or another plug-in (e.g. the workspace).
- * The view is connected to the model using a content provider.
- * <p>
- * The view uses a label provider to define how model
- * objects should be presented in the view. Each
- * view can present the same model objects using
- * different labels and icons, if needed. Alternatively,
- * a single label provider can be shared between views
- * in order to ensure that objects of the same type are
- * presented in the same way everywhere.
- * <p>
+ * Main class for the concurrent access view, which is used to display
+ * concurrent accesses in code.
  */
-
 public class ConcurrentAccessView extends ViewPart implements ISelectionListener {
 
 	/**
@@ -73,90 +48,57 @@ public class ConcurrentAccessView extends ViewPart implements ISelectionListener
 	 */
 	public static final String ID = "edu.illinois.concurrentaccessview.views.ConcurrentAccessView";
 
+	/**
+	 * A tree viewer used to display concurrent accesses.
+	 */
 	private TreeViewer viewer;
 	
+	/**
+	 * A label used to display the trace of a concurrent access.
+	 */
 	private Label traceLabel;
-	
-	private DrillDownAdapter drillDownAdapter;
 
-	private Action action1;
-	private Action action2;
+	/**
+	 * Run when the user double-clicks an item in the tree viewer.
+	 */
 	private Action doubleClickAction;
 
+	/**
+	 * The file in which concurrent accesses are being analyzed.
+	 */
 	private IFile file;
 
-	/**
-	 * The constructor.
+	/* (non-Javadoc)
+	 * @see org.eclipse.ui.part.WorkbenchPart#createPartControl(org.eclipse.swt.widgets.Composite)
 	 */
-	public ConcurrentAccessView() {
-	}
-
-	private void contributeToActionBars() {
-		IActionBars bars = getViewSite().getActionBars();
-		fillLocalPullDown(bars.getMenuManager());
-		fillLocalToolBar(bars.getToolBarManager());
-	}
-
-	/**
-	 * This is a callback that will allow us
-	 * to create the viewer and initialize it.
-	 */
+	@Override
 	public void createPartControl(Composite parent) {
 		
+		// Create a layout with two equal-width columns.
 		FillLayout fillLayout = new FillLayout(SWT.HORIZONTAL);
 		fillLayout.spacing = 4;
 		parent.setLayout(fillLayout);
 		
+		// Create the tree viewer.
 		viewer = new TreeViewer(parent);
-		drillDownAdapter = new DrillDownAdapter(viewer);
 		viewer.setContentProvider(new ViewContentProvider());
 		viewer.setLabelProvider(new ViewLabelProvider());
 		viewer.setSorter(new NameSorter());
 		viewer.setInput(getViewSite());
+		
+		// Create and hook all actions.
 		makeActions();
-		hookContextMenu();
 		hookDoubleClickAction();
-		contributeToActionBars();
+		
 		getSite().getPage().addSelectionListener((ISelectionListener) this);
 		
+		// Create the trace label.
 		Label traceLabel = new Label(parent, SWT.LEFT);
 	}
 
-	private void fillContextMenu(IMenuManager manager) {
-		manager.add(action1);
-		manager.add(action2);
-		manager.add(new Separator());
-		drillDownAdapter.addNavigationActions(manager);
-		// Other plug-ins can contribute there actions here
-		manager.add(new Separator(IWorkbenchActionConstants.MB_ADDITIONS));
-	}
-
-	private void fillLocalPullDown(IMenuManager manager) {
-		manager.add(action1);
-		manager.add(new Separator());
-		manager.add(action2);
-	}
-
-	private void fillLocalToolBar(IToolBarManager manager) {
-		manager.add(action1);
-		manager.add(action2);
-		manager.add(new Separator());
-		drillDownAdapter.addNavigationActions(manager);
-	}
-	
-	private void hookContextMenu() {
-		MenuManager menuMgr = new MenuManager("#PopupMenu");
-		menuMgr.setRemoveAllWhenShown(true);
-		menuMgr.addMenuListener(new IMenuListener() {
-			public void menuAboutToShow(IMenuManager manager) {
-				ConcurrentAccessView.this.fillContextMenu(manager);
-			}
-		});
-		Menu menu = menuMgr.createContextMenu(viewer.getControl());
-		viewer.getControl().setMenu(menu);
-		getSite().registerContextMenu(menuMgr, viewer);
-	}
-
+	/**
+	 * Hooks a double-click listener to the tree viewer.
+	 */
 	private void hookDoubleClickAction() {
 		viewer.addDoubleClickListener(new IDoubleClickListener() {
 			public void doubleClick(DoubleClickEvent event) {
@@ -165,27 +107,12 @@ public class ConcurrentAccessView extends ViewPart implements ISelectionListener
 		});
 	}
 
+	/**
+	 * Creates all actions needed by this view.
+	 */
 	private void makeActions() {
-		action1 = new Action() {
-			public void run() {
-				showMessage("Action 1 executed");
-			}
-		};
-		action1.setText("Action 1");
-		action1.setToolTipText("Action 1 tooltip");
-		action1.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().
-			getImageDescriptor(ISharedImages.IMG_OBJS_INFO_TSK));
 		
-		action2 = new Action() {
-			public void run() {
-				showMessage("Action 2 executed");
-			}
-		};
-		action2.setText("Action 2");
-		action2.setToolTipText("Action 2 tooltip");
-		action2.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().
-				getImageDescriptor(ISharedImages.IMG_OBJS_INFO_TSK));
-		
+		// Create the double-click action.
 		doubleClickAction = new Action() {
 			public void run() {
 				
@@ -216,6 +143,12 @@ public class ConcurrentAccessView extends ViewPart implements ISelectionListener
 		};
 	}
 	
+	/**
+	 * Open the selected file in the Java editor and put a marker at the given
+	 * line number.
+	 * @param line A line number in the currently selected file.
+	 * @throws CoreException
+	 */
 	private void openFileInEditor(int line) throws CoreException {
 		IWorkbenchPage activePage = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
 		HashMap<String, Object> markerAttributes = new HashMap<String, Object>();
@@ -227,6 +160,9 @@ public class ConcurrentAccessView extends ViewPart implements ISelectionListener
 		marker.delete();
 	}
 
+	/* (non-Javadoc)
+	 * @see org.eclipse.ui.ISelectionListener#selectionChanged(org.eclipse.ui.IWorkbenchPart, org.eclipse.jface.viewers.ISelection)
+	 */
 	@Override
 	public void selectionChanged(IWorkbenchPart part, ISelection selection) {
 		if (selection instanceof TreeSelection) {
@@ -289,17 +225,11 @@ public class ConcurrentAccessView extends ViewPart implements ISelectionListener
 		}
 	}
 
-	/**
-	 * Passing the focus request to the viewer's control.
+	/* (non-Javadoc)
+	 * @see org.eclipse.ui.part.WorkbenchPart#setFocus()
 	 */
+	@Override
 	public void setFocus() {
 		viewer.getControl().setFocus();
-	}
-	
-	private void showMessage(String message) {
-		MessageDialog.openInformation(
-			viewer.getControl().getShell(),
-			"Concurrent Access View",
-			message);
 	}
 }
