@@ -27,16 +27,16 @@ import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.viewers.TreeSelection;
 import org.eclipse.jface.viewers.TreeViewer;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.ui.IActionBars;
 import org.eclipse.ui.ISelectionListener;
 import org.eclipse.ui.ISharedImages;
-import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchActionConstants;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchPart;
-import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.ide.IDE;
 import org.eclipse.ui.part.DrillDownAdapter;
@@ -75,6 +75,8 @@ public class ConcurrentAccessView extends ViewPart implements ISelectionListener
 
 	private TreeViewer viewer;
 	
+	private Label traceLabel;
+	
 	private DrillDownAdapter drillDownAdapter;
 
 	private Action action1;
@@ -100,7 +102,12 @@ public class ConcurrentAccessView extends ViewPart implements ISelectionListener
 	 * to create the viewer and initialize it.
 	 */
 	public void createPartControl(Composite parent) {
-		viewer = new TreeViewer(parent, SWT.MULTI | SWT.H_SCROLL | SWT.V_SCROLL);
+		
+		FillLayout fillLayout = new FillLayout(SWT.HORIZONTAL);
+		fillLayout.spacing = 4;
+		parent.setLayout(fillLayout);
+		
+		viewer = new TreeViewer(parent);
 		drillDownAdapter = new DrillDownAdapter(viewer);
 		viewer.setContentProvider(new ViewContentProvider());
 		viewer.setLabelProvider(new ViewLabelProvider());
@@ -110,8 +117,9 @@ public class ConcurrentAccessView extends ViewPart implements ISelectionListener
 		hookContextMenu();
 		hookDoubleClickAction();
 		contributeToActionBars();
-		
 		getSite().getPage().addSelectionListener((ISelectionListener) this);
+		
+		Label traceLabel = new Label(parent, SWT.LEFT);
 	}
 
 	private void fillContextMenu(IMenuManager manager) {
@@ -208,6 +216,17 @@ public class ConcurrentAccessView extends ViewPart implements ISelectionListener
 		};
 	}
 	
+	private void openFileInEditor(int line) throws CoreException {
+		IWorkbenchPage activePage = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
+		HashMap<String, Object> markerAttributes = new HashMap<String, Object>();
+		markerAttributes.put(IMarker.LINE_NUMBER, new Integer(line));
+		markerAttributes.put(IDE.EDITOR_ID_ATTR, "org.eclipse.jdt.ui.CompilationUnitEditor");
+		IMarker marker = this.file.createMarker(IMarker.TEXT);
+		marker.setAttributes(markerAttributes);
+		IDE.openEditor(activePage, marker);
+		marker.delete();
+	}
+
 	@Override
 	public void selectionChanged(IWorkbenchPart part, ISelection selection) {
 		if (selection instanceof TreeSelection) {
@@ -276,27 +295,11 @@ public class ConcurrentAccessView extends ViewPart implements ISelectionListener
 	public void setFocus() {
 		viewer.getControl().setFocus();
 	}
-
+	
 	private void showMessage(String message) {
 		MessageDialog.openInformation(
 			viewer.getControl().getShell(),
 			"Concurrent Access View",
 			message);
-	}
-	
-	private void openFileInEditor(int line) throws CoreException {
-		
-		IWorkbench wb = PlatformUI.getWorkbench();
-		IWorkbenchWindow win = wb.getActiveWorkbenchWindow();
-		IWorkbenchPage page = win.getActivePage();
-		
-		HashMap<String, Object> map = new HashMap<String, Object>();
-		map.put(IMarker.LINE_NUMBER, new Integer(line));
-		map.put(IDE.EDITOR_ID_ATTR, "org.eclipse.ui.DefaultTextEditor");
-		IMarker marker = this.file.createMarker(IMarker.TEXT);
-		marker.setAttributes(map);
-		
-		IDE.openEditor(page, marker);
-		marker.delete();
 	}
 }
