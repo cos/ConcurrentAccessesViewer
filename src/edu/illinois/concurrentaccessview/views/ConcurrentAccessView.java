@@ -79,8 +79,6 @@ public class ConcurrentAccessView extends ViewPart {
 		makeActions();
 		hookDoubleClickAction();
 		
-		getSite().getPage().addSelectionListener((ISelectionListener) this);
-		
 		// Create the trace label.
 		Label traceLabel = new Label(parent, SWT.LEFT);
 	}
