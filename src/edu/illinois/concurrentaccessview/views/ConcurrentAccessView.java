@@ -136,7 +136,6 @@ public class ConcurrentAccessView extends ViewPart {
 		// Create a sash form with two equal-width columns.
 		SashForm form = new SashForm(parent, SWT.HORIZONTAL);
 		form.setLayout(new FillLayout());
-		form.setWeights(new int[] {50, 50});
 		
 		// Create the tree viewer.
 		Composite child1 = new Composite(form, SWT.NONE);
@@ -158,6 +157,9 @@ public class ConcurrentAccessView extends ViewPart {
 		Composite child2 = new Composite(form, SWT.NONE);
 		child2.setLayout(new FillLayout());
 		new TextConsoleViewer(child2, console);
+		
+		// Make sash form have two equal-width columns.
+		form.setWeights(new int[] {50, 50});
 	}
 
 	public IFile getFile() {
