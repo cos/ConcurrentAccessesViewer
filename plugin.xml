@@ -28,5 +28,26 @@
          </view>
       </perspectiveExtension>
    </extension>
+   <extension
+         point="org.eclipse.ui.popupMenus">
+      <viewerContribution
+            id="edu.illinois.concurrentAccessView.viewerContribution"
+            targetID="#CompilationUnitEditorContext">
+         <menu
+               id="edu.illinois.concurrentAccessView.menu"
+               label="Concurrency Refactorings"
+               path="additions">
+            <separator
+                  name="parallelarray">
+            </separator>
+         </menu>
+         <action
+               class="edu.illinois.concurrentaccessview.ui.RunReLooperEditorAction"
+               id="edu.illinois.concurrentaccessview.ui.RunReLooperEditorAction"
+               label="Run ReLooper"
+               menubarPath="edu.illinois.concurrentAccessView.menu/parallelarray">
+         </action>
+      </viewerContribution>
+   </extension>
 
 </plugin>
